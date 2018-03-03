@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 arch=x86_64
-extra_targets=''
+extra_make_args=''
 gem5=false
 j="$(($(nproc) - 2))"
 post_script_args=''
@@ -20,22 +20,19 @@ while getopts 'a:gj:lp:qSt:v' OPT; do
       j="$OPTARG"
     ;;
     l)
-      extra_targets="$extra_args kernel_module-reconfigure"
+      extra_make_args="$extra_make_args kernel_module-reconfigure"
     ;;
     l)
-      extra_targets="$extra_args linux-reconfigure"
+      extra_make_args="$extra_make_args linux-reconfigure"
     ;;
     p)
       post_script_args="$OPTARG"
     ;;
     q)
-      extra_targets="$extra_args host-qemu-reconfigure"
+      extra_make_args="$extra_make_args host-qemu-reconfigure"
     ;;
     S)
       qemu_sdl=''
-    ;;
-    t)
-      extra_targets="$extra_args $OPTARG"
     ;;
     x)
       x11=true
@@ -46,6 +43,7 @@ while getopts 'a:gj:lp:qSt:v' OPT; do
   esac
 done
 shift $(($OPTIND - 1))
+extra_make_args="$extra_make_args $@"
 case "$arch" in
   x86_64)
     defconfig=qemu_x86_64_defconfig
@@ -75,7 +73,7 @@ for p in $(find "${rootdir}/buildroot_patches/" -maxdepth 1 -name '*.patch' -pri
     patch -N -r - -p 1 <"$p" || :
 done
 outdir="output.${arch_dir}~"
-make O="$outdir" BR2_EXTERNAL="${rootdir}/kernel_module:${rootdir}/gem5:${rootdir}/parsec" "$defconfig"
+make O="$outdir" BR2_EXTERNAL="${rootdir}/kernel_module:${rootdir}/gem5:${rootdir}/parsec-benchmark" "$defconfig"
 # TODO Can't get rid of this for now.
 # http://stackoverflow.com/questions/44078245/is-it-possible-to-use-config-fragments-with-buildroots-config
 cat ../buildroot_config_fragment >> "${outdir}/.config"
@@ -115,7 +113,7 @@ cmd="time \
   BR2_ROOTFS_POST_SCRIPT_ARGS='$post_script_args' \
   HOST_QEMU_OPTS='--enable-debug --extra-cflags=-DDEBUG_PL061=1 --enable-trace-backends=simple $qemu_sdl' \
   V='$v' \
-  $extra_targets \
+  $extra_make_args \
   all \
 "
 echo "$cmd" | tee "${rootdir}/build.log"

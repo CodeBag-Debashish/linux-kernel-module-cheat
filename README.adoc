@@ -87,7 +87,7 @@ For example, you you modify the kernel modules, you must rebuild with:
 which is just an alias for:
 
 ....
-./build -t kernel_module-reconfigure
+./build -- kernel_module-reconfigure
 ....
 
 where `kernel_module` is the name of out Buildroot package that contains the kernel modules.
@@ -95,7 +95,7 @@ where `kernel_module` is the name of out Buildroot package that contains the ker
 Other important targets are:
 
 ....
-./build -t linux-reconfigure -t host-qemu-reconfigure
+./build -- linux-reconfigure host-qemu-reconfigure
 ....
 
 which are aliased respectively to:
@@ -977,7 +977,7 @@ To disable networking, use:
 To restore it, run:
 
 ....
-./build -t initscripts-reconfigure
+./build -- initscripts-reconfigure
 ....
 
 === The init environment
@@ -1829,6 +1829,51 @@ External open source benchmarks. We will try to create Buildroot packages for th
 
 * http://parsec.cs.princeton.edu/ Mentioned on docs: http://gem5.org/PARSEC_benchmarks
 * http://www.m5sim.org/Splash_benchmarks
+
+===== PARSEC benchmark
+
+We have ported the PARSEC benchmark http://parsec.cs.princeton.edu for cross compilation at: https://github.com/cirosantilli/parsec-benchmark
+
+This repo makes it trivial to get started with it:
+
+....
+./build -a arm -g -- BR2_PACKAGE_PARSEC_BENCHMARK=y BR2_TARGET_ROOTFS_EXT2_SIZE='"3G"'
+./run -a arm -g
+....
+
+You can also edit those options in link:buildroot_config_fragment[]
+
+Then inside the guest, launch PARSEC exactly as you would launch it on the host:
+
+....
+./run -a arm -e 'init=/eval.sh - lkmc_eval="
+  cd /parsec/
+  bash --init-file env.sh -c \"m5 checkpoint;parsecmgmt -a run -p splash2.barnes -i simsmall;m5 exit\"
+"' -g
+....
+
+As mentioned at link:https://github.com/cirosantilli/parsec-benchmark[], only SPLASH2 was currently ported.
+
+Keep in mind that activating PARSEC makes images huge at a few Gigs, specially so since we make multiple images for each configuration for different purposes, e.g. `.ext2`, `.cpio`, etc. This is why we don't build PARSEC by default.
+
+If you want to remove PARSEC later, Buildroot doesn't provide an automated package removal mechanism as documented at: link:https://github.com/buildroot/buildroot/blob/2017.08/docs/manual/rebuilding-packages.txt#L90[], but the following procedure should be satisfactory:
+
+....
+rm -rf \
+  ./buildroot/dl/parsec-3.0-* \
+  ./buildroot/output.arm-gem5~/build/parsec-* \
+  ./buildroot/output.arm-gem5~/images/rootfs.* \
+  ./buildroot/output.arm-gem5~/target/parsec-* \
+;
+./build -a arm -g
+....
+
+If you end up going inside link:parsec/parsec[] to hack up the benchmark (you will!), and you do a host build to test things quickly first, don't forget to clean the build before moving on to the Buildroot cross build:
+
+....
+cd parsec-benchmark/parsec-benchmark
+git clean -xdf .
+....
 
 === gem5 kernel command line parameters
 
